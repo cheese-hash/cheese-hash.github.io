@@ -5,8 +5,8 @@
     <title>祝福弹窗</title>
     <script>
         // 祝福文字列表
-        const messages = ["天天开心", "谢谢你", "做最棒的自己", "不要熬夜", "没有烦恼", "好好吃饭", "世界很大 开心第一","可爱","有趣","真诚","温柔","游戏很厉害","情绪稳定","会回消息","你本来就是一个很好的人"];
-        
+        const messages = ["天天开心", "谢谢你", "做最棒的自己", "不要熬夜", "没有烦恼", "好好吃饭", "世界很大 开心第一", "可爱", "有趣", "真诚", "温柔", "游戏很厉害", "情绪稳定", "会回消息", "你本来就是一个很好的人"];
+
         // 随机生成弹窗
         function createPopup() {
             const popup = document.createElement("div");
@@ -15,31 +15,31 @@
             const height = Math.floor(Math.random() * 50) + 100; // 100-150px
             const left = Math.floor(Math.random() * (window.innerWidth - width));
             const top = Math.floor(Math.random() * (window.innerHeight - height));
-            
+
             // 设置样式
             popup.style.cssText = `
-                position: fixed;
-                width: ${width}px;
-                height: ${height}px;
-                left: ${left}px;
-                top: ${top}px;
-                background: #fff;
-                border: 2px solid #f0f0f0;
-                border-radius: 8px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-family: "SimHei", sans-serif;
-                font-size: 16px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            `;
-            
+                    position: fixed;
+                    width: ${width}px;
+                    height: ${height}px;
+                    left: ${left}px;
+                    top: ${top}px;
+                    background: #fff;
+                    border: 2px solid #f0f0f0;
+                    border-radius: 8px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-family: "SimHei", sans-serif;
+                    font-size: 16px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                `;
+
             // 随机文字
             popup.innerText = messages[Math.floor(Math.random() * messages.length)];
             document.body.appendChild(popup);
         }
-        
-        // 生成50个弹窗（间隔300ms）
+
+        // 生成弹窗（间隔50ms，共220个）
         let count = 0;
         const interval = setInterval(() => {
             createPopup();
@@ -48,6 +48,7 @@
         }, 50);
     </script>
 </head>
+<!-- 关键修改：将背景改为粉色到紫色的渐变 -->
 <body style="margin:0; background: linear-gradient(to right, pink, purple);">
 </body>
 </html>
