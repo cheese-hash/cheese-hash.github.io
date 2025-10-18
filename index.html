@@ -5,7 +5,7 @@
     <title>祝福弹窗</title>
     <script>
         // 祝福文字列表
-        const messages = ["天天开心", "谢谢你", "做最棒的自己", "不要熬夜", "没有烦恼", "好好吃饭", "世界很大 开心第一"];
+        const messages = ["天天开心", "谢谢你", "做最棒的自己", "不要熬夜", "没有烦恼", "好好吃饭", "世界很大 开心第一","可爱","有趣","真诚","温柔","游戏很厉害","情绪稳定","会回消息","你本来就是一个很好的人"];
         
         // 随机生成弹窗
         function createPopup() {
@@ -44,8 +44,8 @@
         const interval = setInterval(() => {
             createPopup();
             count++;
-            if (count >= 50) clearInterval(interval);
-        }, 300);
+            if (count >= 100) clearInterval(interval);
+        }, 100);
     </script>
 </head>
 <body style="margin:0; background:#f9f9f9;"></body>
