@@ -1,0 +1,351 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2026 高科技元宇宙跨年盛典</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        #ui-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+        /* 全息倒计时样式 */
+        #countdown {
+            font-size: 8rem;
+            color: #ff69b4;
+            text-shadow: 0 0 20px #ff69b4, 0 0 50px #ff69b4;
+            font-weight: 900;
+            letter-spacing: 10px;
+            filter: blur(0.5px);
+            transition: all 0.2s;
+        }
+
+        #system-time {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: #00f3ff;
+            font-family: monospace;
+            font-size: 1.2rem;
+        }
+
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: rgba(0, 243, 255, 0.6);
+            font-size: 0.8rem;
+        }
+
+        .btn-fullscreen {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            padding: 8px 15px;
+            background: transparent;
+            border: 1px solid #00f3ff;
+            color: #00f3ff;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+    </style>
+    <!-- 引入高科技字体 -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div id="ui-container">
+        <div id="system-time">SYS_TIME: 00:00:00</div>
+        <div id="countdown">00:00:00</div>
+        <div id="instructions">
+            [MOUSE] CLICK: LAUNCH FIREWORK | [ARROWS] ROTATE VIEW | [F] FULLSCREEN
+        </div>
+        <button class="btn-fullscreen" onclick="toggleFullScreen()">TOGGLE_FULLSCREEN</button>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+
+        // --- 配置参数 ---
+        const TARGET_TIME = new Date("2026-01-01T00:00:00").getTime();
+        let scene, camera, renderer, composer, clock;
+        let stars, starMaterial;
+        let fireworks = [];
+        const GRAVITY = new THREE.Vector3(0, -0.005, 0);
+
+        // --- 初始化场景 ---
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+            camera.position.set(0, 20, 100);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            document.body.appendChild(renderer.domElement);
+
+            // 后处理：实现全息辉光效果 (Bloom)
+            const renderScene = new RenderPass(scene, camera);
+            const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+            composer = new EffectComposer(renderer);
+            composer.addPass(renderScene);
+            composer.addPass(bloomPass);
+
+            clock = new THREE.Clock();
+
+            createStarfield();
+            animate();
+
+            // 事件监听
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('keydown', onKeyDown);
+            window.addEventListener('click', (e) => launchFirework(false));
+        }
+
+        // --- 1. 动态星空实现 ---
+        function createStarfield() {
+            const geometry = new THREE.BufferGeometry();
+            const vertices = [];
+            const sizes = [];
+            for (let i = 0; i < 5000; i++) {
+                vertices.push(THREE.MathUtils.randFloatSpread(1500), THREE.MathUtils.randFloatSpread(1500), THREE.MathUtils.randFloatSpread(1500));
+                sizes.push(Math.random() * 2);
+            }
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+
+            starMaterial = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 0.7,
+                transparent: true,
+                blending: THREE.AdditiveBlending
+            });
+            stars = new THREE.Points(geometry, starMaterial);
+            scene.add(stars);
+        }
+
+        // --- 2. 物理粒子烟花类 ---
+        class Particle {
+            constructor(pos, color, vel, target = null) {
+                this.pos = pos.clone();
+                this.vel = vel.clone();
+                this.acc = new THREE.Vector3();
+                this.alpha = 1.0;
+                this.friction = 0.98; // 空气阻力
+                this.color = color;
+                this.life = 1.0;
+                this.decay = Math.random() * 0.02 + 0.005;
+                this.target = target; // 如果有目标，粒子会向目标汇聚
+            }
+
+            update() {
+                if (this.target) {
+                    // 形状引导逻辑：向目标位置插值
+                    this.pos.lerp(this.target, 0.05);
+                    this.alpha -= 0.005;
+                } else {
+                    this.vel.add(GRAVITY);
+                    this.vel.multiplyScalar(this.friction);
+                    this.pos.add(this.vel);
+                    this.alpha -= this.decay;
+                }
+            }
+        }
+
+        class Firework {
+            constructor(isSpecial = false) {
+                this.isSpecial = isSpecial; // 是否为"2026"形状烟花
+                this.particles = [];
+                this.hue = Math.random();
+                this.done = false;
+                this.init();
+            }
+
+            init() {
+                const x = THREE.MathUtils.randFloatSpread(100);
+                const y = -50;
+                const z = THREE.MathUtils.randFloatSpread(50);
+                this.seed = new THREE.Vector3(x, y, z);
+                this.vel = new THREE.Vector3(THREE.MathUtils.randFloatSpread(0.5), Math.random() * 1.5 + 1.0, THREE.MathUtils.randFloatSpread(0.5));
+            }
+
+            explode() {
+                const count = this.isSpecial ? 800 : 150;
+                const color = new THREE.Color().setHSL(this.hue, 0.8, 0.6);
+
+                for (let i = 0; i < count; i++) {
+                    let target = null;
+                    let vel;
+
+                    if (this.isSpecial) {
+                        // 这里简化模拟：爆炸后粒子形成环状，实际2026形状由多个烟花组合
+                        const theta = Math.random() * Math.PI * 2;
+                        const phi = Math.random() * Math.PI;
+                        vel = new THREE.Vector3(Math.sin(phi) * Math.cos(theta), Math.cos(phi), Math.sin(phi) * Math.sin(theta)).multiplyScalar(Math.random() * 2);
+                    } else {
+                        const theta = Math.random() * Math.PI * 2;
+                        const radius = Math.random() * 3;
+                        vel = new THREE.Vector3(Math.cos(theta) * radius, Math.sin(theta) * radius, THREE.MathUtils.randFloatSpread(1));
+                    }
+                    this.particles.push(new Particle(this.seed, color, vel));
+                }
+            }
+        }
+
+        // --- 3. 核心倒计时逻辑 ---
+        function updateCountdown() {
+            const now = new Date();
+            const diff = TARGET_TIME - now.getTime();
+
+            // 更新系统时间显示
+            document.getElementById('system-time').innerText = `SYS_TIME: ${now.toTimeString().split(' ')[0]}`;
+
+            if (diff <= 0) {
+                document.getElementById('countdown').innerText = "HAPPY 2026 天天开心";
+                document.getElementById('countdown').style.color = "#ff69b4";
+                // 自动触发大量烟花
+                if (Math.random() > 0.9) launchFirework(true);
+                return;
+            }
+
+            const h = Math.floor(diff / 3600000).toString().padStart(2, '0');
+            const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
+            const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+
+            const timeStr = `${h}:${m}:${s}`;
+            const el = document.getElementById('countdown');
+            if (el.innerText !== timeStr) {
+                el.innerText = timeStr;
+                // 每次跳秒增加一个轻微的缩放抖动
+                el.style.transform = "scale(1.05)";
+                setTimeout(() => el.style.transform = "scale(1)", 50);
+            }
+        }
+
+        // --- 4. 渲染与交互 ---
+        function launchFirework(special) {
+            const fw = new Firework(special);
+            // 直接模拟爆炸点
+            fw.seed.set(THREE.MathUtils.randFloatSpread(200), Math.random() * 60 + 20, THREE.MathUtils.randFloatSpread(150));
+            fw.explode();
+            fireworks.push(fw);
+        }
+
+        function onKeyDown(e) {
+            const speed = 0.05;
+            if (e.key === 'ArrowLeft') camera.position.x -= 2;
+            if (e.key === 'ArrowRight') camera.position.x += 2;
+            if (e.key === 'ArrowUp') camera.position.y += 2;
+            if (e.key === 'ArrowDown') camera.position.y -= 2;
+            if (e.key.toLowerCase() === 'f') toggleFullScreen();
+            camera.lookAt(0, 20, 0);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+
+            updateCountdown();
+
+            // 星空微动
+            stars.rotation.y += 0.0002;
+            starMaterial.opacity = 0.5 + Math.sin(Date.now() * 0.001) * 0.5;
+
+            // 烟花粒子更新
+            const particlePositions = [];
+            const particleColors = [];
+
+            for (let i = fireworks.length - 1; i >= 0; i--) {
+                const fw = fireworks[i];
+                for (let j = fw.particles.length - 1; j >= 0; j--) {
+                    const p = fw.particles[j];
+                    p.update();
+                    if (p.alpha <= 0) {
+                        fw.particles.splice(j, 1);
+                    }
+                }
+                if (fw.particles.length === 0) fireworks.splice(i, 1);
+            }
+
+            // 绘制所有烟花粒子
+            // 这里为了性能，实际应使用单独的 Points 系统，此处为演示逻辑
+            // 我们动态创建临时的渲染对象或使用 BufferGeometry 更新
+            drawParticles();
+
+            composer.render();
+        }
+
+        function drawParticles() {
+            // 清理旧的粒子点
+            scene.children.forEach(child => {
+                if (child.isParticleSystem) scene.remove(child);
+            });
+
+            const pointsGeo = new THREE.BufferGeometry();
+            const positions = [];
+            const colors = [];
+
+            fireworks.forEach(fw => {
+                fw.particles.forEach(p => {
+                    positions.push(p.pos.x, p.pos.y, p.pos.z);
+                    colors.push(p.color.r, p.color.g, p.color.b);
+                });
+            });
+
+            if (positions.length > 0) {
+                pointsGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+                pointsGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+                const mat = new THREE.PointsMaterial({ size: 0.8, vertexColors: true, blending: THREE.AdditiveBlending, transparent: true });
+                const pSystem = new THREE.Points(pointsGeo, mat);
+                pSystem.isParticleSystem = true;
+                scene.add(pSystem);
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        window.toggleFullScreen = function () {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
